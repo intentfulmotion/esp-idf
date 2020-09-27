@@ -89,6 +89,7 @@ typedef struct {
     uint32_t rx_item_start_idx;
 #endif
     sample_to_rmt_t sample_to_rmt;
+    void* tx_context;
     size_t sample_size_remain;
     const uint8_t *sample_cur;
 } rmt_obj_t;
@@ -710,7 +711,8 @@ static void IRAM_ATTR rmt_driver_isr_default(void *arg)
                                          p_rmt->sample_size_remain,
                                          p_rmt->tx_sub_len,
                                          &translated_size,
-                                         &p_rmt->tx_len_rem);
+                                         &p_rmt->tx_len_rem,
+                                         p_rmt->tx_context);
                     p_rmt->sample_size_remain -= translated_size;
                     p_rmt->sample_cur += translated_size;
                     p_rmt->tx_data = p_rmt->tx_buf;
@@ -1091,7 +1093,7 @@ rmt_tx_end_callback_t rmt_register_tx_end_callback(rmt_tx_end_fn_t function, voi
     return previous;
 }
 
-esp_err_t rmt_translator_init(rmt_channel_t channel, sample_to_rmt_t fn)
+esp_err_t rmt_translator_init(rmt_channel_t channel, sample_to_rmt_t fn, void *fn_context)
 {
     RMT_CHECK(fn != NULL, RMT_TRANSLATOR_NULL_STR, ESP_ERR_INVALID_ARG);
     RMT_CHECK(channel < RMT_CHANNEL_MAX, RMT_CHANNEL_ERROR_STR, ESP_ERR_INVALID_ARG);
@@ -1114,6 +1116,7 @@ esp_err_t rmt_translator_init(rmt_channel_t channel, sample_to_rmt_t fn)
         }
     }
     p_rmt_obj[channel]->sample_to_rmt = fn;
+    p_rmt_obj[channel]->tx_context = fn_context;
     p_rmt_obj[channel]->sample_size_remain = 0;
     p_rmt_obj[channel]->sample_cur = NULL;
     ESP_LOGD(RMT_TAG, "RMT translator init done");
@@ -1139,7 +1142,7 @@ esp_err_t rmt_write_sample(rmt_channel_t channel, const uint8_t *src, size_t src
     const uint32_t item_block_len = rmt_ll_get_mem_blocks(rmt_contex.hal.regs, channel) * RMT_MEM_ITEM_NUM;
     const uint32_t item_sub_len = item_block_len / 2;
     xSemaphoreTake(p_rmt->tx_sem, portMAX_DELAY);
-    p_rmt->sample_to_rmt((void *)src, p_rmt->tx_buf, src_size, item_block_len, &translated_size, &item_num);
+    p_rmt->sample_to_rmt((void *)src, p_rmt->tx_buf, src_size, item_block_len, &translated_size, &item_num, p_rmt->tx_context);
     p_rmt->sample_size_remain = src_size - translated_size;
     p_rmt->sample_cur = src + translated_size;
     rmt_fill_memory(channel, p_rmt->tx_buf, item_num, 0);

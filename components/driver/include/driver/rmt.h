@@ -159,14 +159,13 @@ typedef struct {
 * @param[out] item_num The number of the rmt format data that actually converted to,
 *             it can be less than wanted_num if there is not enough raw data, but cannot exceed wanted_num.
 *             it should return 0 if no data was converted.
-* @param  context Pointer to the context data passed in by rmt_translator_init for the channel.
 *
 * @note
 *       In fact, item_num should be a multiple of translated_size, e.g. :
 *       When we convert each byte of uint8_t type data to rmt format data,
 *       the relation between item_num and translated_size should be `item_num = translated_size*8`.
 */
-typedef void (*sample_to_rmt_t)(const void *src, rmt_item32_t *dest, size_t src_size, size_t wanted_num, size_t *translated_size, size_t *item_num, void *context);
+typedef void (*sample_to_rmt_t)(const void *src, rmt_item32_t *dest, size_t src_size, size_t wanted_num, size_t *translated_size, size_t *item_num);
 
 /**
 * @brief Set RMT clock divider, channel clock is divided from source clock.
@@ -757,13 +756,25 @@ esp_err_t rmt_get_ringbuf_handle(rmt_channel_t channel, RingbufHandle_t *buf_han
 *
 * @param channel RMT channel .
 * @param fn Point to the data conversion function.
-* @param fn_context Pointer to the context data to pass to the data conversion function.
 *
 * @return
 *     - ESP_FAIL Init fail.
 *     - ESP_OK Init success.
 */
-esp_err_t rmt_translator_init(rmt_channel_t channel, sample_to_rmt_t fn, void* fn_context);
+esp_err_t rmt_translator_init(rmt_channel_t channel, sample_to_rmt_t fn);
+    
+/**
+* @brief Sets the user context for a channel that can be accessed in a translator function.
+*        Function should be called after rmt_translator_init.
+*         
+* @param channel RMT channel
+* @param context Pointer to user context data for the channel
+*
+* @return
+*     - ESP_FAIL Channel has not been init yet
+*     - ESP_OK Added context for translator
+*/
+esp_err_t rmt_set_translator_context(rmt_channel_t channel, void* context);
 
 /**
 * @brief Translate uint8_t type of data into rmt format and send it out.
